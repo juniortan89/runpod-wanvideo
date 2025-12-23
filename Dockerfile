@@ -1,16 +1,20 @@
 # RunPod Serverless - ComfyUI WanVideo InfiniteTalk
-# Base: PyTorch 2.5.1 + CUDA 12.4 (OFFICIAL, PREINSTALLED)
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+# Base: NVIDIA CUDA with Ubuntu
+FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04
 
+# Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_HOME=/usr/local/cuda
-ENV TORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0"
 
+# Set working directory
 WORKDIR /app
 
-# System dependencies (minimal, CI-safe)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3.10-dev \
+    python3-pip \
     git \
     wget \
     curl \
@@ -22,10 +26,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip tooling
+# Create symbolic link for python
+RUN ln -sf /usr/bin/python3.10 /usr/bin/python
+
+# Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install common Python dependencies
+# Install PyTorch (CUDA 12.1)
+RUN pip install --no-cache-dir \
+    torch==2.4.0 \
+    torchvision==0.19.0 \
+    torchaudio==2.4.0 \
+    --index-url https://download.pytorch.org/whl/cu121
+
+# Install common dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -33,39 +47,78 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /app/ComfyUI
 
 # Install ComfyUI dependencies
-RUN pip install --no-cache-dir -r /app/ComfyUI/requirements.txt
-
-# Install comfy-cli
-RUN pip install --no-cache-dir comfy-cli
+WORKDIR /app/ComfyUI
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Setup custom nodes
 COPY builder/setup.sh /app/builder/setup.sh
 RUN chmod +x /app/builder/setup.sh && /app/builder/setup.sh
 
-# Download models
-WORKDIR /app/ComfyUI
-# (model downloads remain unchanged)
+# Download models using wget (more reliable in Docker)
+RUN echo "Downloading models..." && \
+    mkdir -p models/diffusion_models models/vae models/loras models/clip_vision models/text_encoders models/transformers/TencentGameMate && \
+    \
+    echo "Downloading InfiniteTalk model..." && \
+    wget -q --show-progress -O models/diffusion_models/Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors \
+      https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/InfiniteTalk/Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors && \
+    \
+    echo "Downloading I2V model..." && \
+    wget -q --show-progress -O models/diffusion_models/Wan2_1-I2V-14B-480p_fp8_e5m2_scaled_KJ.safetensors \
+      https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/I2V/Wan2_1-I2V-14B-480p_fp8_e5m2_scaled_KJ.safetensors && \
+    \
+    echo "Downloading VAE..." && \
+    wget -q --show-progress -O models/vae/wan_2.1_vae.safetensors \
+      https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors && \
+    \
+    echo "Downloading LoRA..." && \
+    wget -q --show-progress -O models/loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors \
+      https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors && \
+    \
+    echo "Downloading CLIP Vision..." && \
+    wget -q --show-progress -O models/clip_vision/clip_vision_h.safetensors \
+      https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors && \
+    \
+    echo "Downloading text encoder..." && \
+    wget -q --show-progress -O models/text_encoders/umt5_xxl_fp16.safetensors \
+      https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp16.safetensors && \
+    \
+    echo "Downloading Wav2Vec2..." && \
+    wget -q --show-progress -O models/transformers/TencentGameMate/wav2vec2-chinese-base_fp16.safetensors \
+      https://huggingface.co/Kijai/wav2vec2_safetensors/resolve/main/wav2vec2-chinese-base_fp16.safetensors && \
+    \
+    echo "Downloading MelBandRoFormer..." && \
+    wget -q --show-progress -O models/diffusion_models/MelBandRoformer_fp32.safetensors \
+      https://huggingface.co/Kijai/MelBandRoFormer_comfy/resolve/main/MelBandRoformer_fp32.safetensors && \
+    \
+    echo "Model downloads complete! Verifying..." && \
+    ls -lh models/diffusion_models/ && \
+    ls -lh models/vae/ && \
+    ls -lh models/loras/ && \
+    ls -lh models/clip_vision/ && \
+    ls -lh models/text_encoders/ && \
+    ls -lh models/transformers/TencentGameMate/ && \
+    echo "All models verified!"
 
 WORKDIR /app
 
 # Copy workflow
 COPY workflows/infinite-talk.json /app/ComfyUI/workflows/
 
-# Copy handler and startup scripts
+# Copy handler and startup script
 COPY src/handler.py /app/handler.py
 COPY src/start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
-# Create required directories
+# Create model directories (comfy-cli will create subdirs automatically)
 RUN mkdir -p /app/ComfyUI/input \
     /app/ComfyUI/output \
     /app/ComfyUI/models
 
-# Environment variables
+# Set environment variables
 ENV COMFYUI_PATH=/app/ComfyUI
-ENV PYTHONPATH=/app/ComfyUI
+ENV PYTHONPATH="${PYTHONPATH}:/app/ComfyUI"
 
-# Expose ComfyUI port
+# Expose port (optional, for testing)
 EXPOSE 8188
 
 # Health check
