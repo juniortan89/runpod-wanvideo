@@ -32,11 +32,11 @@ RUN ln -sf /usr/bin/python3.10 /usr/bin/python
 # Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install PyTorch (CUDA 12.1)
+# Install PyTorch 2.6.0 (CUDA 12.1) - Required for transformers security fix
 RUN pip install --no-cache-dir \
-    torch==2.4.0 \
-    torchvision==0.19.0 \
-    torchaudio==2.4.0 \
+    torch==2.6.0 \
+    torchvision==0.21.0 \
+    torchaudio==2.6.0 \
     --index-url https://download.pytorch.org/whl/cu121
 
 # Install common dependencies
