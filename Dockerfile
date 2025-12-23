@@ -1,6 +1,6 @@
 # RunPod Serverless - ComfyUI WanVideo InfiniteTalk
 # Base: PyTorch Nightly CUDA 12.8 (PREINSTALLED)
-FROM pytorch/pytorch:nightly-cuda12.8-cudnn9-runtime
+FROM pytorch/pytorch:nightly-cuda12.4-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
