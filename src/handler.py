@@ -66,62 +66,65 @@ def save_file_from_base64(base64_str: str, filename: str, input_dir: str) -> str
     return filename
 
 def load_workflow(workflow_path: str = None) -> Dict:
-    """Load workflow JSON"""
+    """Load workflow JSON (already in API format)"""
     if workflow_path is None:
         workflow_path = os.path.join(COMFYUI_PATH, "workflows", "infinite-talk.json")
     
     with open(workflow_path, "r") as f:
-        return json.load(f)
+        workflow_data = json.load(f)
+    
+    # Workflow is already in API format (has node IDs as keys)
+    # Just return it as-is
+    return workflow_data
 
 def update_workflow_params(workflow: Dict, params: Dict) -> Dict:
     """Update workflow with user parameters"""
     
-    # Find nodes by type or title
-    for node in workflow["nodes"]:
-        node_type = node.get("type")
-        node_title = node.get("title", "")
-        node_id = node.get("id")
+    # Workflow is in API format: {"node_id": {"inputs": {...}, "class_type": "..."}}
+    for node_id, node_data in workflow.items():
+        class_type = node_data.get("class_type")
+        inputs = node_data.get("inputs", {})
         
-        # Update LoadAudio node (id 125 in your workflow)
-        if node_type == "LoadAudio" or node_id == 125:
+        # Update LoadAudio node (125)
+        if node_id == "125" or class_type == "LoadAudio":
             if "audio_file" in params:
-                node["widgets_values"][0] = params["audio_file"]
+                inputs["audio"] = params["audio_file"]
         
-        # Update LoadImage node (id 284 in your workflow)
-        elif node_type == "LoadImage" or node_id == 284:
+        # Update LoadImage node (284)
+        elif node_id == "284" or class_type == "LoadImage":
             if "input_image" in params:
-                node["widgets_values"][0] = params["input_image"]
+                inputs["image"] = params["input_image"]
         
-        # Update Width (id 245 in your workflow)
-        elif node_id == 245 or ("Width" in node_title and node_type == "INTConstant"):
+        # Update Width (245)
+        elif node_id == "245":
             if "width" in params:
-                node["widgets_values"][0] = params["width"]
+                inputs["value"] = params["width"]
         
-        # Update Height (id 246 in your workflow)
-        elif node_id == 246 or ("Height" in node_title and node_type == "INTConstant"):
+        # Update Height (246)
+        elif node_id == "246":
             if "height" in params:
-                node["widgets_values"][0] = params["height"]
+                inputs["value"] = params["height"]
         
-        # Update Max frames (id 270 in your workflow)
-        elif node_id == 270 or ("Max frames" in node_title and node_type == "INTConstant"):
+        # Update Max frames (270)
+        elif node_id == "270":
             if "max_frames" in params:
-                node["widgets_values"][0] = params["max_frames"]
+                inputs["value"] = params["max_frames"]
         
-        # Update text prompt (id 241 in your workflow)
-        elif node_type == "WanVideoTextEncodeCached" or node_id == 241:
+        # Update text prompt (241)
+        elif node_id == "241" or class_type == "WanVideoTextEncodeCached":
             if "prompt" in params:
-                node["widgets_values"][2] = params["prompt"]
+                inputs["positive_prompt"] = params["prompt"]
             if "negative_prompt" in params:
-                node["widgets_values"][3] = params["negative_prompt"]
+                inputs["negative_prompt"] = params["negative_prompt"]
         
-        # Update sampler settings (id 128 in your workflow)
-        elif node_type == "WanVideoSampler" or node_id == 128:
+        # Update sampler settings (128)
+        elif node_id == "128" or class_type == "WanVideoSampler":
             if "seed" in params:
-                node["widgets_values"][0] = params["seed"]
+                inputs["seed"] = params["seed"]
             if "steps" in params:
-                node["widgets_values"][2] = params["steps"]
+                inputs["steps"] = params["steps"]
             if "cfg" in params:
-                node["widgets_values"][3] = params["cfg"]
+                inputs["cfg"] = params["cfg"]
     
     return workflow
 
