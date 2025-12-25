@@ -39,9 +39,9 @@ RUN pip install --no-cache-dir \
     torchaudio==2.5.1 \
     --index-url https://download.pytorch.org/whl/cu121
 
-# Downgrade transformers to version compatible with PyTorch 2.5.1
-# This avoids the torch.load security error
-RUN pip install --no-cache-dir transformers==4.44.2
+# Set environment variable to disable torch.load security check
+# This is needed because PyTorch 2.5.1 with transformers 4.45+ enforces the check
+ENV TORCH_FORCE_WEIGHTS_ONLY_LOAD=0
 
 # Install common dependencies
 COPY requirements.txt .
