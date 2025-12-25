@@ -32,12 +32,16 @@ RUN ln -sf /usr/bin/python3.10 /usr/bin/python
 # Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install PyTorch 2.6.0 (CUDA 12.1) - Required for transformers security fix
+# Install PyTorch 2.5.1 (CUDA 12.1) - Latest stable for CUDA 12.1
 RUN pip install --no-cache-dir \
-    torch==2.6.0 \
-    torchvision==0.21.0 \
-    torchaudio==2.6.0 \
+    torch==2.5.1 \
+    torchvision==0.20.1 \
+    torchaudio==2.5.1 \
     --index-url https://download.pytorch.org/whl/cu121
+
+# Downgrade transformers to version compatible with PyTorch 2.5.1
+# This avoids the torch.load security error
+RUN pip install --no-cache-dir transformers==4.44.2
 
 # Install common dependencies
 COPY requirements.txt .
