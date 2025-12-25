@@ -17,6 +17,9 @@ COMFYUI_PATH = os.getenv("COMFYUI_PATH", "/app/ComfyUI")
 COMFYUI_PORT = os.getenv("COMFYUI_PORT", "8188")
 COMFYUI_URL = f"http://127.0.0.1:{COMFYUI_PORT}"
 
+# Disable torch.load security check for transformers compatibility
+os.environ['TORCH_FORCE_WEIGHTS_ONLY_LOAD'] = '0'
+
 # Start ComfyUI server in background
 comfyui_process = None
 
